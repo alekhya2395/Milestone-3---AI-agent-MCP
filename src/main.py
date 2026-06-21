@@ -10,7 +10,15 @@ from starlette.responses import JSONResponse
 
 from src.pipeline import get_latest_pulse, get_review_stats, run_fetch_reviews, run_normalize_reviews
 
-mcp = FastMCP("weekly-pulse")
+HOST = os.getenv("HOST", "0.0.0.0")
+PORT = int(os.getenv("PORT", "8080"))
+
+mcp = FastMCP(
+    "weekly-pulse",
+    host=HOST,
+    port=PORT,
+    stateless_http=True,
+)
 
 
 @mcp.custom_route("/health", methods=["GET"])
@@ -43,9 +51,8 @@ def latest_pulse() -> str:
 
 
 def main() -> None:
-    host = os.getenv("HOST", "0.0.0.0")
-    port = int(os.getenv("PORT", "8080"))
-    mcp.run(transport="streamable-http", host=host, port=port)
+    print(f"Starting weekly-pulse MCP on {HOST}:{PORT}", flush=True)
+    mcp.run(transport="streamable-http")
 
 
 if __name__ == "__main__":
