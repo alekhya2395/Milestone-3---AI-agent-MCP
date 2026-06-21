@@ -2,6 +2,44 @@
 
 Weekly **review pulse** agent: ingest App Store / Play Store exports → synthesize themes and actions → publish to **Google Docs** and **Gmail draft** via **Google Workspace MCP** (no direct Google APIs).
 
+**Repository:** [github.com/alekhya2395/Milestone-3---AI-agent-MCP](https://github.com/alekhya2395/Milestone-3---AI-agent-MCP)
+
+## Settings
+
+Local setup from scratch (Windows / PowerShell):
+
+```powershell
+# 1. Clone
+git clone https://github.com/alekhya2395/Milestone-3---AI-agent-MCP.git
+cd Milestone-3---AI-agent-MCP
+
+# 2. Virtual environment
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+
+# 3. Install dependencies
+pip install -r requirements.txt
+
+# 4. Environment variables
+copy .env.example .env
+# Edit .env with your keys (Google OAuth, Alpha Vantage, etc.)
+
+# 5. MCP setup (Cursor)
+# Follow: phases/phase-01-mcp-setup/gcp-setup-checklist.md
+# Then:  phases/phase-01-mcp-setup/runbook.md
+
+# 6. Download reviews (Phase 2)
+python phases/phase-02-review-ingestion/scripts/fetch-reviews.py --weeks 10
+python phases/phase-02-review-ingestion/scripts/normalize-reviews.py
+```
+
+Step 5 details:
+
+- [GCP setup checklist](phases/phase-01-mcp-setup/gcp-setup-checklist.md) — Google Cloud project, OAuth, APIs
+- [MCP runbook](phases/phase-01-mcp-setup/runbook.md) — connect `google-drive` and `google-gmail` in **Settings → Tools & MCP**
+
+After step 6, review outputs are in `data/raw/` (CSV) and `data/reviews/reviews.json` (filtered JSON).
+
 ## Documentation
 
 | Doc | Purpose |
