@@ -139,6 +139,32 @@ railway up
 
 Or push to GitHub if connected — Railway auto-deploys.
 
+---
+
+## Step 5 — Generate public domain (fix "Not Found")
+
+Domain generation only works after a **successful** deployment (green checkmark).
+
+1. Railway → your **service** → **Settings** → **Networking**
+2. Under **Public Networking**, click **Generate Domain**
+3. Copy the exact URL shown (e.g. `https://something-production.up.railway.app`) — do not guess the hostname
+4. Click the **pencil/edit icon** next to the domain
+5. Set **Port** to match your app port:
+   - Check deploy logs for: `Starting weekly-pulse MCP on 0.0.0.0:XXXX`
+   - Or use the `PORT` value from Railway **Variables** (Railway sets this automatically)
+   - Common value: **`8080`** if logs show port 8080
+6. Save — traffic should route immediately (no redeploy needed)
+
+### Verify these URLs
+
+| URL | Expected |
+|-----|----------|
+| `https://YOUR-APP.up.railway.app/` | JSON with `"status": "running"` |
+| `https://YOUR-APP.up.railway.app/health` | `{"status":"healthy",...}` |
+| `https://YOUR-APP.up.railway.app/mcp` | MCP endpoint (for Cursor) |
+
+If root `/` shows **Not Found**, the domain port is wrong or deployment failed — fix Networking port first.
+
 Verify:
 
 ```bash
@@ -241,7 +267,9 @@ python -m src.worker --weeks 10
 
 | Symptom | Fix |
 |---------|-----|
-| Health check fails | Check deploy logs; confirm `PORT` is used by `python -m src` |
+| **Not Found** on domain root | Settings → Networking → edit domain → set **Port** to match app `PORT` (see deploy logs) |
+| **Generate Domain** greyed out | Wait for deployment to succeed (healthcheck must pass) |
+| Health check fails | Check deploy logs for startup errors; confirm `/health` works |
 | MCP tools empty in Cursor | Verify URL ends with `/mcp`; check MCP Logs (`Ctrl+Shift+U`) |
 | Reviews missing after redeploy | Attach Railway Volume at `/app/data` |
 | `fetch_reviews` timeout | Increase Railway service memory; Play Store pagination is slow |

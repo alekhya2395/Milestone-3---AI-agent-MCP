@@ -5,8 +5,7 @@ WORKDIR /app
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     DATA_DIR=/app/data \
-    HOST=0.0.0.0 \
-    PORT=8080
+    HOST=0.0.0.0
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
@@ -23,6 +22,7 @@ COPY src/ src/
 
 RUN mkdir -p /app/data/raw /app/data/processed /app/data/reviews
 
+# Railway injects PORT at runtime — do not hardcode it here.
 EXPOSE 8080
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \

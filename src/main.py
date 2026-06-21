@@ -21,6 +21,20 @@ mcp = FastMCP(
 )
 
 
+@mcp.custom_route("/", methods=["GET"])
+async def root(request: Request) -> JSONResponse:
+    return JSONResponse(
+        {
+            "service": "weekly-pulse-mcp",
+            "status": "running",
+            "endpoints": {
+                "health": "/health",
+                "mcp": "/mcp",
+            },
+        }
+    )
+
+
 @mcp.custom_route("/health", methods=["GET"])
 async def health_check(request: Request) -> JSONResponse:
     return JSONResponse({"status": "healthy", "service": "weekly-pulse-mcp"})
@@ -52,6 +66,7 @@ def latest_pulse() -> str:
 
 def main() -> None:
     print(f"Starting weekly-pulse MCP on {HOST}:{PORT}", flush=True)
+    print("Routes: GET /  GET /health  POST /mcp", flush=True)
     mcp.run(transport="streamable-http")
 
 
