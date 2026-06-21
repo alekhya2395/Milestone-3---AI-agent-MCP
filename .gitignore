@@ -1,0 +1,44 @@
+# Secrets — never commit
+.env
+.env.local
+*.pem
+credentials.json
+client_secret*.json
+
+# Raw review exports (often large / may contain PII)
+# Keep README; downloaded CSVs stay local (not committed)
+data/raw/*
+!data/raw/README.md
+!data/raw/.gitkeep
+
+# Misplaced path from earlier fetch (remove if empty)
+phases/data/
+
+# Processed data (optional: commit small fixtures only)
+data/processed/*
+!data/processed/README.md
+!data/processed/.gitkeep
+!data/processed/fixtures/
+
+# Combined JSON reviews (large)
+data/reviews/*
+!data/reviews/README.md
+!data/reviews/.gitkeep
+
+# Raw archive is very large
+data/reviews/reviews-raw.json
+
+# OS / editor
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
+.vscode/
+
+# Phase evidence (screenshots may contain account info)
+phases/phase-01-mcp-setup/evidence/*
+!phases/phase-01-mcp-setup/evidence/.gitkeep
+phases/phase-04-google-docs-mcp/evidence/*
+!phases/phase-04-google-docs-mcp/evidence/.gitkeep
+phases/phase-05-gmail-orchestration/evidence/*
+!phases/phase-05-gmail-orchestration/evidence/.gitkeep
