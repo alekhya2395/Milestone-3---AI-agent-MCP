@@ -4,6 +4,7 @@
 *.pem
 credentials.json
 client_secret*.json
+token.json
 
 # Raw review exports (often large / may contain PII)
 # Keep README; downloaded CSVs stay local (not committed)
@@ -34,6 +35,8 @@ Thumbs.db
 *.swp
 .idea/
 .vscode/
+__pycache__/
+*.pyc
 
 # Phase evidence (screenshots may contain account info)
 phases/phase-01-mcp-setup/evidence/*

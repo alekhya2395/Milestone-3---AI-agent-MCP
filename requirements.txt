@@ -1,2 +1,6 @@
 google-play-scraper>=1.2.0
+google-auth>=2.0.0
+google-auth-oauthlib>=1.0.0
 langdetect>=1.0.9
+mcp[cli]>=1.6.0
+starlette>=0.37.0

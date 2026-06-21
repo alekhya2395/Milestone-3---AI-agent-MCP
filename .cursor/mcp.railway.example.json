@@ -1,5 +1,8 @@
 {
   "mcpServers": {
+    "weekly-pulse": {
+      "url": "https://YOUR-APP.up.railway.app/mcp"
+    },
     "google-drive": {
       "url": "https://drivemcp.googleapis.com/mcp/v1",
       "auth": {

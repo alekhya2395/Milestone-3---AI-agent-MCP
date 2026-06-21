@@ -49,6 +49,19 @@ After step 6, review outputs are in `data/raw/` (CSV) and `data/reviews/reviews.
 | [docs/implementationplan.md](docs/implementationplan.md) | Phase-wise plan |
 | [docs/eval.md](docs/eval.md) | Milestone evaluation tracker |
 | [docs/decision.md](docs/decision.md) | Architecture decisions |
+| [docs/deployment-railway.md](docs/deployment-railway.md) | Deploy custom MCP server on Railway |
+
+## Railway deployment
+
+Deploy the **weekly-pulse MCP server** (review tools) to Railway:
+
+```bash
+railway up
+```
+
+Full guide: [docs/deployment-railway.md](docs/deployment-railway.md)
+
+Google Gmail/Drive MCP remain on Google's servers — connect both from Cursor.
 
 ## Project layout
 
