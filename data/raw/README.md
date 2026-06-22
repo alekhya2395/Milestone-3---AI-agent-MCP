@@ -2,7 +2,7 @@
 
 Place downloaded App Store and Play Store CSV files here.
 
-## Download Zomato reviews (8–12 weeks)
+## Download Groww reviews (8–12 weeks)
 
 From project root:
 
@@ -27,7 +27,11 @@ python phases/phase-02-review-ingestion/scripts/fetch-reviews.py --weeks 12
 
 ## Product (Milestone 1)
 
-- **Zomato** — App Store `434613896`, Play Store `com.application.zomato`
+- **Groww** — App Store `1404871703`, Play Store `com.nextbillion.groww`
+
+Configure via `.env`: `PRODUCT_NAME`, `APP_STORE_ID`, `PLAY_PACKAGE`.
+
+Normalization uses the **latest** `export-summary-*.json` only (older Zomato exports are ignored).
 
 Files are gitignored by default (size / PII). They remain on your machine under this folder.
 

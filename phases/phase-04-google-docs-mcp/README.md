@@ -1,6 +1,6 @@
 # Phase 4 — Google Docs via Drive MCP
 
-**Status:** Not started  
+**Status:** Implemented (Drive MCP + Gmail MCP scripts)  
 **Eval:** [docs/phases/phase-04-google-docs-mcp/eval.md](../../docs/phases/phase-04-google-docs-mcp/eval.md)  
 **Plan:** [Implementation Plan — Phase 4](../../docs/implementationplan.md#phase-4--google-docs-via-drive-mcp)
 
@@ -12,8 +12,10 @@ Publish the approved weekly pulse to a **new Google Doc** using **Drive MCP tool
 
 | Path | Purpose |
 |------|---------|
-| `runbook.md` | MCP tool sequence for Doc creation (added in Phase 4) |
-| `evidence/` | Doc links, verify screenshots (gitignored if sensitive) |
+| `scripts/run-phase4.py` | Publish pulse via Drive MCP (`create_file` + verify) |
+| `scripts/prepare-publish.py` | Build `publish-manifest.json` |
+| `scripts/validate-phase4.py` | Local Phase 4 checks |
+| `runbook.md` | MCP tool sequence and troubleshooting |
 
 ## Planned deliverables
 

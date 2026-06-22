@@ -1,0 +1,32 @@
+{
+  "mcpServers": {
+    "weekly-pulse": {
+      "url": "https://milestone-3-ai-agent-mcp-production.up.railway.app/mcp"
+    },
+    "google-drive": {
+      "url": "https://drivemcp.googleapis.com/mcp/v1",
+      "auth": {
+        "CLIENT_ID": "${env:GOOGLE_OAUTH_CLIENT_ID}",
+        "CLIENT_SECRET": "${env:GOOGLE_OAUTH_CLIENT_SECRET}",
+        "scopes": [
+          "https://www.googleapis.com/auth/drive.readonly",
+          "https://www.googleapis.com/auth/drive.file"
+        ]
+      }
+    },
+    "google-gmail": {
+      "url": "https://gmailmcp.googleapis.com/mcp/v1",
+      "auth": {
+        "CLIENT_ID": "${env:GOOGLE_OAUTH_CLIENT_ID}",
+        "CLIENT_SECRET": "${env:GOOGLE_OAUTH_CLIENT_SECRET}",
+        "scopes": [
+          "https://www.googleapis.com/auth/gmail.readonly",
+          "https://www.googleapis.com/auth/gmail.compose"
+        ]
+      }
+    },
+    "alphavantage": {
+      "url": "https://mcp.alphavantage.co/mcp?apikey=${env:ALPHAVANTAGE_API_KEY}"
+    }
+  }
+}

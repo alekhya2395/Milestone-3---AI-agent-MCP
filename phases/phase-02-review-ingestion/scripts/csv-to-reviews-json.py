@@ -5,10 +5,14 @@ from __future__ import annotations
 
 import csv
 import json
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[3]
+sys.path.insert(0, str(ROOT / "phases" / "shared"))
+from product_config import PRODUCT_NAME  # noqa: E402
+
 RAW_DIR = ROOT / "data" / "raw"
 OUT_DIR = ROOT / "data" / "reviews"
 
@@ -35,7 +39,7 @@ def main() -> None:
 
     export_date = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     payload = {
-        "product": "Zomato",
+        "product": PRODUCT_NAME,
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "total_count": len(all_reviews),
         "counts": {

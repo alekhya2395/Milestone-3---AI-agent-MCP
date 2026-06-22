@@ -141,6 +141,21 @@ Update when a decision is made, reversed, or superseded.
 
 ---
 
+### DEC-018 — Gmail draft recipient via `GMAIL_DRAFT_TO`
+
+**Date:** 2026-06-21  
+**Status:** Accepted  
+
+**Context:** Phase 5 `create_draft` requires a recipient; operator may use primary Gmail or an alias.
+
+**Decision:** Configure **`GMAIL_DRAFT_TO`** in `.env` — plain email address only (no display name). Used by `create-gmail-draft.py` / `run-phase5.py`.
+
+**Rationale:** Keeps recipient out of code; matches MCP `create_draft` `to` field requirements.
+
+**Consequences:** Operator must set `.env` before Phase 5; verify draft in Gmail UI before send.
+
+---
+
 ## DEC-010 — Public review exports as the only data source
 
 **Date:** 2026-06-15  
@@ -225,15 +240,30 @@ _None._
 ### DEC-015 — Zomato as Milestone 1 product; public scraper for review download
 
 **Date:** 2026-06-15  
-**Status:** Accepted  
+**Status:** Superseded by DEC-017 (2026-06-21)
 
-**Context:** Milestone 1 project is `MILESTONE 1 - ZOMATO`. Reviews must come from public exports with an 8–12 week window.
+**Context:** Milestone 1 project was initially scaffolded as `MILESTONE 1 - ZOMATO`. Reviews must come from public exports with an 8–12 week window.
 
 **Decision:** Use **Zomato** (`434613896` / `com.application.zomato`). Download via `phases/phase-02-review-ingestion/scripts/fetch-reviews.py` — App Store RSS + `google-play-scraper` for Play Store, stored under `data/raw/`.
 
 **Rationale:** Aligns with Milestone 1; no login scraping; repeatable script with date window filter.
 
 **Consequences:** Play Store public scraper for high-volume apps may not reach full 10 weeks in one run (Zomato: ~8 weeks / 60k reviews). App Store RSS covers ~10 weeks (~489 reviews). Sufficient for milestone analysis when combined.
+
+---
+
+### DEC-017 — Groww as Milestone 1 product (supersedes DEC-015)
+
+**Date:** 2026-06-21  
+**Status:** Accepted  
+
+**Context:** The weekly pulse Google Doc and project intent target **Groww** (investment app), not Zomato. Zomato data produced misleading pulse content.
+
+**Decision:** Use **Groww** (`1404871703` / `com.nextbillion.groww`). Product identity and theme vocabulary live in `phases/shared/product_config.py` and `.env` (`PRODUCT_NAME`, `APP_STORE_ID`, `PLAY_PACKAGE`). Same fetch/normalize pipeline as DEC-015.
+
+**Rationale:** Matches user intent and Milestone 1 product; fintech theme vocabulary (trading, KYC, deposits, UX, support).
+
+**Consequences:** Re-fetch reviews under `data/raw/export-summary-2026-06-21.json`; re-run Phase 2–4. Legacy Zomato CSVs remain in `data/raw/` but are ignored when a newer `export-summary-*.json` exists.
 
 ---
 
@@ -256,10 +286,28 @@ _None._
 
 ---
 
+### DEC-019 — Weekly scheduler for review refresh
+
+**Date:** 2026-06-22  
+**Status:** Accepted  
+
+**Context:** Reviews go stale without a recurring job. The milestone requires an 8–12 week window that stays current each week.
+
+**Decision:** Add `src/worker.py` + `run_weekly_job()` pipeline:
+- **Railway cron** (`deploy/railway.cron.toml`): Mondays 06:00 UTC — fetch, normalize, pulse (no publish; no Google creds on Railway).
+- **Windows Task Scheduler** (`install-weekly-scheduler.ps1`): Mondays 09:00 local — full run with `--publish` (Doc + Gmail draft via API fallback).
+- **MCP tool** `run_weekly_job` on the Railway server for on-demand runs; `scheduler_status` reads `scheduler-last-run.json`.
+
+**Rationale:** Keeps Groww review corpus and pulse artifact fresh; publish stays operator-controlled on a machine with OAuth.
+
+**Consequences:** Cron service needs its own Railway volume + `GROQ_API_KEY`. Publish requires local Windows scheduler or manual `python -m src.worker --publish`.
+
+---
+
 ## Deferred (not yet decided)
 
 | Topic | Options | Decide by |
 |-------|---------|-----------|
-| Exact Milestone 1 product name & export URLs | **Zomato** — see `data/raw/export-summary-*.json` | Resolved 2026-06-15 |
-| Gmail recipient (primary vs alias) | — | Phase 5 start |
+| Exact Milestone 1 product name & export URLs | **Groww** — see `data/raw/export-summary-*.json` | Resolved 2026-06-21 |
+| Gmail recipient (primary vs alias) | **`GMAIL_DRAFT_TO` in `.env`** — plain email for `create_draft` | Resolved 2026-06-21 |
 | Default review window within 8–12 weeks | **10 weeks** (iOS full; Play ~8 weeks via public scraper) | Resolved 2026-06-15 |

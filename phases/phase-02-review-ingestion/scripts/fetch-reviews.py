@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Download public Zomato reviews (Milestone 1 product) into data/raw/.
+"""Download public app store reviews (Milestone 1 product) into data/raw/.
 
 - Google Play: paginate until the review window (default 10 weeks) is covered
 - App Store: public RSS feed (up to ~500 reviews per region)
@@ -23,19 +23,24 @@ from pathlib import Path
 
 # Project root: .../MILESTONE 3 - AI AGENT WITH MCP
 ROOT = Path(__file__).resolve().parents[3]
+sys.path.insert(0, str(ROOT / "phases" / "shared"))
+from product_config import (  # noqa: E402
+    APP_STORE_COUNTRIES,
+    APP_STORE_ID,
+    PLAY_COUNTRY,
+    PLAY_PACKAGE,
+    PRODUCT_NAME,
+)
+
 RAW_DIR = ROOT / "data" / "raw"
 
-PRODUCT = "Zomato"
-APP_STORE_ID = "434613896"
-PLAY_PACKAGE = "com.application.zomato"
-PLAY_COUNTRY = "in"
-APP_STORE_COUNTRIES = ("us", "in", "gb")
+PRODUCT = PRODUCT_NAME
 
 USER_AGENT = "Mozilla/5.0 (compatible; WeeklyPulseBot/1.0; +https://github.com)"
 
 
 def parse_args() -> argparse.Namespace:
-    p = argparse.ArgumentParser(description="Fetch public store reviews for Zomato")
+    p = argparse.ArgumentParser(description=f"Fetch public store reviews for {PRODUCT}")
     p.add_argument(
         "--weeks",
         type=int,
@@ -231,7 +236,7 @@ def main() -> None:
 
     summary = {
         "product": PRODUCT,
-        "milestone": "MILESTONE 1 - ZOMATO",
+        "milestone": f"MILESTONE 1 - {PRODUCT.upper()}",
         "export_date": export_date,
         "review_window_weeks": args.weeks,
         "window_start": (datetime.now() - timedelta(weeks=args.weeks)).strftime("%Y-%m-%d"),

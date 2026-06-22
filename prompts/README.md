@@ -1,12 +1,11 @@
 # Agent prompts
 
-Phase 3+ agent instructions live here.
+Phase 3 agent instructions.
 
-| File (planned) | Purpose |
-|----------------|---------|
-| `system.md` | Core agent role and constraints |
-| `weekly-run.md` | End-to-end orchestration (Phase 5) |
-| `theming.md` | Theme vocabulary and clustering rules |
-| `pulse-format.md` | ≤250-word structure template |
+| File | Purpose |
+|------|---------|
+| [system.md](./system.md) | Core agent role, MCP tools, constraints |
+| [theming.md](./theming.md) | Groq call 1 — theme vocabulary and JSON output |
+| [pulse-format.md](./pulse-format.md) | Groq call 2 — ≤250-word pulse structure |
 
-Prompts are added in Phases 3 and 5; Phase 1 only reserves this folder.
+Loaded automatically by `generate-pulse.py` when present.

@@ -1,0 +1,9 @@
+platform,date,rating,title,text,version,country,source
+android,2026-06-01,1,Poor delivery,The order arrived very late and the food was completely cold when it finally came,5.2.1,IN,fixture
+android,2026-06-02,2,App crashes often,Every time I try to pay the application crashes and I lose my cart items completely,5.2.1,IN,fixture
+ios,2026-06-03,5,Great experience,Fast delivery and excellent customer support when my order had missing items resolved quickly,12.0,IN,fixture
+android,2026-05-20,1,Bad support,Customer care never responds to complaints about wrong orders and refunds take weeks,5.1.0,IN,fixture
+ios,2026-05-15,3,Okay app,Works fine most of the time but search filters could be improved for better restaurant discovery,11.9,IN,fixture
+android,2026-04-01,4,Good offers,Coupon codes work well and prices are reasonable compared to other food delivery apps,5.0.0,IN,fixture
+android,2026-03-01,2,Login issues,Cannot login with phone number OTP fails repeatedly and password reset does not work either,4.9.0,IN,fixture
+ios,2026-02-01,1,Payment failed,Payment deducted twice from my card but order was never placed support is unhelpful,11.8,IN,fixture

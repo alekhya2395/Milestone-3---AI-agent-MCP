@@ -28,17 +28,26 @@ copy .env.example .env
 # Follow: phases/phase-01-mcp-setup/gcp-setup-checklist.md
 # Then:  phases/phase-01-mcp-setup/runbook.md
 
-# 6. Download reviews (Phase 2)
-python phases/phase-02-review-ingestion/scripts/fetch-reviews.py --weeks 10
-python phases/phase-02-review-ingestion/scripts/normalize-reviews.py
+# 6. Phase 2 — review ingestion
+python phases/phase-02-review-ingestion/scripts/run-phase2.py --skip-fetch --weeks 10
+
+# 7. Phase 3 — themes + weekly pulse (needs GROQ_API_KEY)
+python phases/phase-03-pulse-generation/scripts/run-phase3.py
 ```
 
 Step 5 details:
 
 - [GCP setup checklist](phases/phase-01-mcp-setup/gcp-setup-checklist.md) — Google Cloud project, OAuth, APIs
-- [MCP runbook](phases/phase-01-mcp-setup/runbook.md) — connect `google-drive` and `google-gmail` in **Settings → Tools & MCP**
+- [MCP runbook](phases/phase-01-mcp-setup/runbook.md) — connect MCP servers in **Settings → Tools & MCP**
+- [Railway MCP deployment](docs/deployment-railway.md) — custom `weekly-pulse` server
 
-After step 6, review outputs are in `data/raw/` (CSV) and `data/reviews/reviews.json` (filtered JSON).
+After step 7:
+
+| Path | Content |
+|------|---------|
+| `data/processed/theme-summary.json` | Theme rankings |
+| `data/processed/weekly-pulse-YYYY-MM-DD.md` | **Weekly pulse (main output)** |
+| `data/processed/llm-input-bundle.json` | Groq input bundle |
 
 ## Documentation
 
@@ -49,32 +58,54 @@ After step 6, review outputs are in `data/raw/` (CSV) and `data/reviews/reviews.
 | [docs/implementationplan.md](docs/implementationplan.md) | Phase-wise plan |
 | [docs/eval.md](docs/eval.md) | Milestone evaluation tracker |
 | [docs/decision.md](docs/decision.md) | Architecture decisions |
-| [docs/deployment-railway.md](docs/deployment-railway.md) | Deploy custom MCP server on Railway |
-
-## Railway deployment
-
-Deploy the **weekly-pulse MCP server** (review tools) to Railway:
-
-```bash
-railway up
-```
-
-Full guide: [docs/deployment-railway.md](docs/deployment-railway.md)
-
-Google Gmail/Drive MCP remain on Google's servers — connect both from Cursor.
+| [docs/deployment-railway.md](docs/deployment-railway.md) | Railway MCP server deploy |
 
 ## Project layout
 
 ```
-├── .cursor/mcp.json          # Drive + Gmail MCP (secrets via env vars)
-├── data/raw/                 # Store review exports
-├── data/processed/           # Normalized reviews & pulse artifacts
-├── docs/                     # Specs and per-phase eval.md
-├── phases/                   # Phase work folders (runbooks, artifacts)
-└── prompts/                  # Agent prompts (Phase 3+)
+├── .cursor/mcp.json          # weekly-pulse + Google MCP
+├── src/                      # Railway MCP server (Phase 2–3 tools)
+├── data/processed/           # theme-summary.json, weekly-pulse-*.md
+├── phases/                   # Phase scripts
+└── prompts/                  # Groq prompts (Phase 3)
 ```
 
-## Current phase: 1 — MCP & foundation
+## Current status: Phases 1–5 complete (functional)
+
+**Product:** Groww | **Latest pulse:** `data/processed/weekly-pulse-2026-06-22.md`
+
+| Deliverable | Link / location |
+|-------------|-----------------|
+| Google Doc | https://docs.google.com/document/d/1AwEeMAJA5KRT-y8cfcI2ndnw6JQXSyPItYFkUsRLyz4/edit |
+| Gmail draft | Gmail → Drafts → `alekhya2395@gmail.com` |
+| Railway MCP | https://milestone-3-ai-agent-mcp-production.up.railway.app/mcp |
+
+### MCP setup (if Tools & MCP shows Error)
+
+```powershell
+# Quit Cursor first (File > Exit), then:
+.\phases\phase-01-mcp-setup\scripts\reset-all-mcp.ps1
+```
+
+Then reopen Cursor and connect `google-drive` + `google-gmail`.
+
+### Weekly run (manual or scheduled)
+
+```powershell
+# Full refresh + pulse + publish (local scheduler / manual)
+python -m src.worker --weeks 10 --publish
+
+# Or step-by-step
+python phases/phase-05-gmail-orchestration/scripts/run-weekly.py --fetch
+```
+
+**Windows auto-schedule:** `.\phases\phase-05-gmail-orchestration\scripts\install-weekly-scheduler.ps1`
+
+**Railway auto-schedule:** add a second service with `deploy/railway.cron.toml` (Mondays 06:00 UTC).
+
+---
+
+## Phase 1 — MCP & foundation (optional parallel)
 
 1. Complete [GCP setup checklist](phases/phase-01-mcp-setup/gcp-setup-checklist.md)
 2. Set env vars from [.env.example](.env.example)
@@ -82,10 +113,15 @@ Google Gmail/Drive MCP remain on Google's servers — connect both from Cursor.
 4. Run smoke tests per [runbook](phases/phase-01-mcp-setup/runbook.md)
 5. Sign off [Phase 1 eval](docs/phases/phase-01-mcp-setup/eval.md)
 
-## MCP config location
+## MCP servers
 
-- **Project:** `.cursor/mcp.json` (committed, no secrets)
-- **Credentials:** `GOOGLE_OAUTH_CLIENT_ID` and `GOOGLE_OAUTH_CLIENT_SECRET` in `.env` or system environment
+| Server | URL | Purpose |
+|--------|-----|---------|
+| `weekly-pulse` | `https://milestone-3-ai-agent-mcp-production.up.railway.app/mcp` | Review ingestion + pulse (this repo) |
+| `google-drive` | `https://drivemcp.googleapis.com/mcp/v1` | Google Docs (Phase 4) |
+| `google-gmail` | `https://gmailmcp.googleapis.com/mcp/v1` | Gmail drafts (Phase 5) |
+
+Configured in `.cursor/mcp.json`. Secrets via `.env`: `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET`, `GROQ_API_KEY`.
 
 ## References
 

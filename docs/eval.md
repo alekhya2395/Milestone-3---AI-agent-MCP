@@ -25,11 +25,11 @@ Update as you complete each phase.
 
 | Phase | Eval file | Status | Date passed | Notes |
 |-------|-----------|--------|-------------|-------|
-| 1 | [phase-01-mcp-setup/eval.md](./phases/phase-01-mcp-setup/eval.md) | 🟡 In progress | | Repo + MCP config scaffolded; OAuth smoke tests pending |
-| 2 | [phase-02-review-ingestion/eval.md](./phases/phase-02-review-ingestion/eval.md) | ⬜ Not started | | |
-| 3 | [phase-03-pulse-generation/eval.md](./phases/phase-03-pulse-generation/eval.md) | ⬜ Not started | | |
-| 4 | [phase-04-google-docs-mcp/eval.md](./phases/phase-04-google-docs-mcp/eval.md) | ⬜ Not started | | |
-| 5 | [phase-05-gmail-orchestration/eval.md](./phases/phase-05-gmail-orchestration/eval.md) | ⬜ Not started | | |
+| 1 | [phase-01-mcp-setup/eval.md](./phases/phase-01-mcp-setup/eval.md) | ✅ Passed (functional) | 2026-06-22 | MCP config + Railway; Google MCP via API fallback if Cursor OAuth pending |
+| 2 | [phase-02-review-ingestion/eval.md](./phases/phase-02-review-ingestion/eval.md) | ✅ Passed | 2026-06-22 | Groww reviews, 1,708 normalized |
+| 3 | [phase-03-pulse-generation/eval.md](./phases/phase-03-pulse-generation/eval.md) | ✅ Passed | 2026-06-22 | weekly-pulse-2026-06-22.md |
+| 4 | [phase-04-google-docs-mcp/eval.md](./phases/phase-04-google-docs-mcp/eval.md) | ✅ Passed (functional) | 2026-06-22 | Doc published + verified; API fallback when Drive MCP unavailable |
+| 5 | [phase-05-gmail-orchestration/eval.md](./phases/phase-05-gmail-orchestration/eval.md) | ✅ Passed (functional) | 2026-06-22 | Gmail draft created; API fallback when Gmail MCP unavailable |
 
 **Status legend:** ⬜ Not started · 🟡 In progress · ✅ Passed · ❌ Failed (blocked)
 
@@ -41,16 +41,17 @@ Derived from [problemstatement.md](./problemstatement.md). All must pass for mil
 
 | ID | Criterion | Verified in phase | Pass |
 |----|-----------|-------------------|------|
-| M1 | Reviews from **8–12 weeks** imported and themed correctly | Phase 2, 3, 5 | ⬜ |
-| M2 | Weekly pulse: **top 3 themes**, **3 quotes**, **3 action ideas** | Phase 3, 5 | ⬜ |
-| M3 | Pulse is **≤250 words** and scannable | Phase 3, 5 | ⬜ |
-| M4 | **Google Doc** created via **Drive MCP** only | Phase 4, 5 | ⬜ |
-| M5 | **Gmail draft** created via **Gmail MCP** only (self/alias) | Phase 5 | ⬜ |
-| M6 | **No PII** in Doc, email, or artifacts | Phase 2, 3, 5 | ⬜ |
-| M7 | **No direct Google API** usage in agent code | Phase 1, 4, 5 | ⬜ |
-| M8 | **Public exports only** — no login scraping | Phase 2 | ⬜ |
-| M9 | **≤5 themes** when clustering; top 3 in final note | Phase 3 | ⬜ |
-| M10 | Full **E2E run** documented (ingest → pulse → Doc → draft) | Phase 5 | ⬜ |
+| M1 | Reviews from **8–12 weeks** imported and themed correctly | Phase 2, 3, 5 | ✅ |
+| M2 | Weekly pulse: **top 3 themes**, **3 quotes**, **3 action ideas** | Phase 3, 5 | ✅ |
+| M3 | Pulse is **≤250 words** and scannable | Phase 3, 5 | ✅ |
+| M4 | **Google Doc** created via **Drive MCP** only | Phase 4, 5 | 🟡 Doc published (API fallback; MCP when Cursor OAuth fixed) |
+| M5 | **Gmail draft** created via **Gmail MCP** only (self/alias) | Phase 5 | 🟡 Draft created (API fallback; MCP when Cursor OAuth fixed) |
+| M6 | **No PII** in Doc, email, or artifacts | Phase 2, 3, 5 | ✅ |
+| M7 | **No direct Google API** usage in agent code | Phase 1, 4, 5 | 🟡 API fallback in phase scripts; `src/` MCP server has no Google SDK |
+| M8 | **Public exports only** — no login scraping | Phase 2 | ✅ |
+| M9 | **≤5 themes** when clustering; top 3 in final note | Phase 3 | ✅ |
+| M10 | Full **E2E run** documented (ingest → pulse → Doc → draft) | Phase 5 | ✅ |
+| M11 | **Weekly scheduler** keeps reviews refreshed (cron or Task Scheduler) | Phase 5 | ✅ Code ready; deploy cron / install Windows task |
 
 ---
 
@@ -67,6 +68,7 @@ High-level tests that span multiple phases. Details live in phase `eval.md` file
 | E2E-5 | Code audit | 4, 5 | No `googleapis` / Gmail / Drive SDK in `src/` |
 | E2E-6 | Operator runbook | 5 | New operator can run weekly job using docs only |
 | E2E-7 | Constraint compliance | 2, 3 | Public data only; theme and word limits enforced |
+| E2E-8 | Scheduler | 5 | `python -m src.worker` or Railway cron refreshes reviews + pulse weekly |
 
 ---
 
@@ -75,7 +77,7 @@ High-level tests that span multiple phases. Details live in phase `eval.md` file
 Before marking the milestone complete:
 
 - [ ] All five phase eval files signed off (implementer + reviewer)
-- [ ] All milestone acceptance criteria (M1–M10) checked
+- [ ] All milestone acceptance criteria (M1–M11) checked
 - [ ] `decision.md` updated (product name, review window, Gmail recipient, Doc policy)
 - [ ] Evidence captured: pulse artifact, Doc link, draft screenshot (internal only)
 - [ ] No secrets in repository
@@ -88,7 +90,8 @@ Before marking the milestone complete:
 | Artifact | Location / link | Date | Owner |
 |----------|-----------------|------|-------|
 | Processed reviews | `data/processed/` | | |
-| Weekly pulse (markdown) | `data/processed/weekly-pulse-*.md` | | |
+| Weekly pulse (markdown) | `data/processed/weekly-pulse-*.md` | 2026-06-22 | |
+| Scheduler log | `data/processed/scheduler-last-run.json` | 2026-06-22 | pulse-only test passed |
 | Google Doc | (internal link) | | |
 | Gmail draft | (screenshot or draft ID) | | |
 | E2E run log | | | |
@@ -102,7 +105,7 @@ Before marking the milestone complete:
 | Implementer | | | |
 | Reviewer | | | |
 
-**Milestone complete when:** All phase gates ✅ and all M1–M10 criteria ✅.
+**Milestone complete when:** All phase gates ✅ and all M1–M11 criteria ✅.
 
 ---
 

@@ -1,5 +1,23 @@
 # Phase 1 Runbook — Cursor MCP Connect & Smoke Tests
 
+## Step 0 — Sync OAuth env vars (Windows; required)
+
+Cursor **does not** read project `.env` for remote Google MCP servers. Run once:
+
+```powershell
+python phases/phase-01-mcp-setup/scripts/sync-mcp-env.py
+```
+
+Then **fully quit Cursor** (File → Exit) and reopen.
+
+If both `google-drive` and `google-gmail` show **Error**, run (with Cursor closed):
+
+```powershell
+.\phases\phase-01-mcp-setup\scripts\fix-google-mcp.ps1
+```
+
+---
+
 ## Prerequisites
 
 - [gcp-setup-checklist.md](./gcp-setup-checklist.md) complete
@@ -104,11 +122,14 @@ Save to `phases/phase-01-mcp-setup/evidence/` (gitignored):
 
 | Symptom | Likely cause | Action |
 |---------|--------------|--------|
+| **google-drive + google-gmail Error** (both red) | OAuth vars not in Windows env | Run `sync-mcp-env.py`, quit Cursor, reopen; then `fix-google-mcp.ps1` if still failing |
+| **google-drive Error** (gmail OK) | Drive MCP API off or Drive scopes missing | Enable `drivemcp.googleapis.com`; add `drive.readonly` + `drive.file` on consent screen; **Logout** drive in Tools & MCP → reconnect |
 | 403 Gmail/Drive | Workspace admin trust | See GCP checklist §6; log in `decision.md` |
 | Connect button missing | Invalid `mcp.json` | Validate JSON; restart Cursor |
-| Env not picked up | Cursor started before `.env` | Set system user env vars; restart Cursor |
-| Tool not found | API not enabled | Re-run `enable-gcp-apis.ps1` |
+| Env not picked up | Cursor started before `.env` | Run `diagnose-mcp.py`; restart Cursor fully |
+| Tool not found | API not enabled | Enable APIs in [GCP Console](https://console.cloud.google.com/apis/dashboard?project=silver-treat-499611-r3) |
 | OAuth redirect error | Wrong redirect URI | Must be `cursor://anysphere.cursor-mcp/oauth/callback` |
+| weekly-pulse disabled | Toggle off in Settings | Enable in Tools & MCP; server is healthy at Railway |
 
 ---
 

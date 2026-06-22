@@ -9,7 +9,28 @@ This document describes the **system architecture** for Milestone 3: an AI agent
 - Ingesting App Store and Play Store review exports (8–12 weeks)
 - Theming, summarization, and pulse generation
 - PII-safe outputs
-- Google Doc creation via **Drive MCP**
+- Google Doc creation via **Drive MCP**# 1. Clone
+git clone https://github.com/alekhya2395/Milestone-3---AI-agent-MCP.git
+cd Milestone-3---AI-agent-MCP
+
+# 2. Virtual environment
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+
+# 3. Install dependencies
+pip install -r requirements.txt
+
+# 4. Environment variables
+copy .env.example .env
+# Edit .env with your keys (Google OAuth, Alpha Vantage, etc.)
+
+# 5. MCP setup (Cursor)
+# Follow: phases/phase-01-mcp-setup/gcp-setup-checklist.md
+# Then:  phases/phase-01-mcp-setup/runbook.md
+
+# 6. Download reviews (Phase 2)
+python phases/phase-02-review-ingestion/scripts/fetch-reviews.py --weeks 10
+python phases/phase-02-review-ingestion/scripts/normalize-reviews.py
 - Gmail draft creation via **Gmail MCP**
 - Agent orchestration inside an MCP-capable client
 
@@ -68,7 +89,7 @@ flowchart LR
 | **MCP as Google boundary** | All Gmail and Docs operations cross MCP only; no parallel API integration path |
 | **Local-first analysis** | Review parsing, filtering, and pulse drafting happen against local/repo data before any Google publish step |
 | **Human gate before publish** | Operator can inspect local pulse artifact; Google steps run only after content is acceptable |
-| **Deterministic data, probabilistic synthesis** | Ingestion/normalization are repeatable; theming and summarization are LLM-assisted with fixed output shape |
+| **Deterministic data, probabilistic synthesis** | Ingestion/normalization are repeatable; theming and summarization are **Groq LLM**–assisted with fixed output shape |
 | **Privacy by design** | PII stripped early; quotes selected only from sanitized text |
 | **Fail visibly** | Auth errors, empty data, or MCP failures surface clearly — no silent partial outputs |
 
@@ -123,7 +144,28 @@ flowchart TB
 
 **Experience layer** — Where the operator works: MCP client, prompts, documentation, eval checklists. No business logic for Google APIs here beyond MCP configuration.
 
-**Agent / reasoning layer** — LLM-driven workflow: assign themes, rank issues, pick quotes, write actions, enforce word limit and structure. Orchestration decides *when* to move from analysis → local artifact → MCP publish.
+**Agent / reasoning layer** — **Groq**-powered LLM workflow: assign themes, rank issues, pick quotes, write actions, enforce word limit and structure. Orchestration decides *when* to move from analysis → local artifact → MCP publish. Phase 2 produces clean local data only; **no LLM calls until Phase 3**.
+
+### LLM provider — Groq (Phase 3)
+
+| Item | Choice |
+|------|--------|
+| **Provider** | [Groq](https://console.groq.com/) — fast inference API |
+| **Model** | `llama-3.3-70b-versatile` (theming sample + pulse writing) |
+| **Credential** | `GROQ_API_KEY` in `.env` (never committed) |
+| **Where it runs** | Local Python script or Cursor agent — **not** via MCP |
+| **Weekly Groq calls** | **Exactly 2** per pulse run (see §5.1) |
+
+#### Rate limits — `llama-3.3-70b-versatile` (free tier)
+
+| Limit | Value | Design constraint |
+|-------|------:|-------------------|
+| Requests / minute | 30 | Use **2 requests** per run → no burst issue |
+| Requests / day | 1,000 | One weekly run = 2 requests; safe margin for retries |
+| Tokens / minute | 12,000 | **One request ≤ ~10,000 input tokens** (leave room for output) |
+| Tokens / day | 100,000 | **One run ≈ 12–15K tokens total**; avoid multi-batch full-corpus tagging |
+
+**Design rule:** Never send all 1,000 reviews to Groq. Local Python handles stats and ranking on the full 1,000; Groq sees a **small stratified sample (~120 reviews)** plus aggregated stats.
 
 **Data layer** — Canonical storage for exports, cleaned reviews, and the approved pulse markdown. Source of truth for content parity checks against Doc and email.
 
@@ -187,6 +229,94 @@ flowchart TB
 
 ---
 
+## 5.1 Pre-LLM strategy & Groq token budget
+
+Phase 2 may retain a large normalized archive (e.g. 11k+ “good” reviews), but the **LLM corpus is capped at 1,000 reviews** for v1. Phase 3 runs **local analysis on all 1,000** and **Groq on a small sample only** so free-tier limits are never hit.
+
+### Data tiers
+
+| Tier | File | Count | Groq? |
+|------|------|------:|-------|
+| Full archive | `data/reviews/reviews.json` | ~11,010 (optional) | **No** — storage / future use |
+| **LLM corpus** | `data/processed/reviews-for-llm.json` | **≤ 1,000** | Stats & quote pool (local) |
+| **Groq sample** | inside `llm-input-bundle.json` | **~120** | **Yes** — theme assignment call |
+| Pulse input | inside `llm-input-bundle.json` | stats + top quotes | **Yes** — pulse call |
+
+### Phase 2 — cap to 1,000 reviews (no Groq)
+
+From normalized reviews, select **at most 1,000** for the LLM corpus:
+
+1. Sort by `date` descending (most recent first)
+2. **Stratify by star rating** so 1–2★ pain is represented (target ~50% low ratings given typical app-store skew)
+3. Prefer longer `text` for quote candidates
+4. Write `data/processed/reviews-for-llm.json` + update summary with `"llm_corpus_cap": 1000`
+
+Full normalized data can remain in `normalized-reviews.json`; the 1,000 cap is the **analysis contract** for Phase 3.
+
+### Groq call plan (Phase 3) — 2 requests per weekly run
+
+| Call | Purpose | Input size (est.) | Output (est.) | Tokens (est.) |
+|------|---------|-------------------|---------------|---------------|
+| **1 — Theme tag** | Assign each sampled review to 1 of ≤5 fixed themes (JSON) | ~120 reviews × ~80 tokens + 1.5K prompt | ~2K JSON | **~11K** |
+| **2 — Pulse write** | Draft weekly pulse from top 3 themes + stats + 9 quotes | ~3K prompt | ~400 words markdown | **~4K** |
+| **Total** | | | | **~15K / run** |
+
+**Within limits:** 2 RPM ≪ 30; ~15K tokens ≪ 100K/day; each call ≪ 12K TPM if calls are sequential (wait for call 1 to finish before call 2).
+
+**Do not:** batch-tag all 1,000 reviews on Groq (e.g. 25 × 4K-token batches ≈ **100K TPD** in one run — exhausts daily quota).
+
+### Local work (no Groq tokens)
+
+| Step | Input | Output |
+|------|--------|--------|
+| Aggregate stats | 1,000 reviews | Rating mix, platform split, weekly counts in bundle |
+| Build Groq sample | 1,000 reviews | ~120 stratified rows (over-sample 1–2★) |
+| After call 1 | Theme JSON on 120 reviews | Extrapolate theme prevalence to 1,000 via keyword rules OR weighted sample counts |
+| Rank themes | Theme counts + severity weight | Top 3 themes (DEC-011) |
+| Pick quote candidates | 1,000 corpus | 3 quotes per top theme from **local** text (sanitized) |
+| Validate pulse | Markdown | Word count ≤250, PII scan |
+
+### Recommended pipeline
+
+```mermaid
+flowchart LR
+    ALL[normalized-reviews.json<br/>full archive]
+    CAP[reviews-for-llm.json<br/>max 1000]
+    STATS[Local stats<br/>on 1000]
+    SAMPLE[Groq sample<br/>120 reviews]
+    BUNDLE[llm-input-bundle.json]
+    G1[Groq call 1<br/>theme JSON]
+    RANK[Local rank<br/>top 3 themes]
+    G2[Groq call 2<br/>pulse md]
+    PULSE[weekly-pulse.md]
+
+    ALL --> CAP
+    CAP --> STATS
+    CAP --> SAMPLE
+    STATS --> BUNDLE
+    SAMPLE --> BUNDLE
+    BUNDLE --> G1 --> RANK --> G2 --> PULSE
+```
+
+### Fixed theme vocabulary (Groww, ≤5)
+
+**Trading & orders** · **KYC & onboarding** · **Deposits & withdrawals** · **App UX & bugs** · **Customer support**
+
+Configured in `phases/shared/product_config.py` (see DEC-017).
+
+### Phase folder roles
+
+| Path | Role |
+|------|------|
+| `phases/phase-02-review-ingestion/scripts/normalize-reviews.py` | Filters + PII; produces normalized archive |
+| Phase 2 cap step (planned script) | Writes `reviews-for-llm.json` (≤1,000) |
+| `phases/phase-03-pulse-generation/scripts/` (planned) | Build bundle, 2 Groq calls, validate pulse |
+| `phases/phase-01-mcp-setup/` | MCP only — no review / Groq logic |
+
+**Strategy:** **Local-first, Groq-minimal** — 1,000-review corpus for stats/quotes; **2 Groq calls** per week; no full-corpus LLM batching.
+
+---
+
 ## 6. Canonical Data Model
 
 All platforms normalize to the same review shape before analysis.
@@ -204,7 +334,9 @@ All platforms normalize to the same review shape before analysis.
 
 | Artifact | Purpose |
 |----------|---------|
-| `normalized-reviews.json` | Clean input for theming |
+| `normalized-reviews.json` | Full clean archive (all good reviews) |
+| `reviews-for-llm.json` | **≤1,000** reviews — LLM corpus cap (Phase 2) |
+| `llm-input-bundle.json` | Stats on 1,000 + ~120-review Groq sample + theme vocabulary |
 | `theme-summary.json` | Theme counts, rankings, sample review ids |
 | `weekly-pulse-YYYY-MM-DD.md` | Human-reviewable pulse before Google publish |
 
@@ -272,7 +404,7 @@ flowchart LR
 sequenceDiagram
     participant Op as Operator
     participant Client as MCP Client
-    participant Agent as LLM Agent
+    participant Agent as Groq LLM Agent
     participant Local as Local artifacts
     participant Drive as Drive MCP
     participant Gmail as Gmail MCP
@@ -304,7 +436,7 @@ sequenceDiagram
 | Load exports | Local / repo | No |
 | Normalize & filter | Local | No |
 | Sanitize PII | Local | No |
-| Theme & pulse generation | Agent (LLM) | No |
+| Theme & pulse generation | Agent (Groq LLM) | No |
 | Operator review | Human | No |
 | Create Google Doc | Drive MCP | Yes |
 | Create Gmail draft | Gmail MCP | Yes |

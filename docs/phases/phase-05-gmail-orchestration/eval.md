@@ -26,6 +26,9 @@
 | T5.8 | E2E — ordering | Verify run sequence | Analysis completes before Drive/Gmail calls; Doc before or independent of draft per design |
 | T5.9 | Failure isolation | Document behavior if Drive succeeds but Gmail fails | Partial success documented; recovery steps in runbook |
 | T5.10 | Runbook | Follow runbook as new operator | Weekly job completable without author present |
+| T5.11 | Scheduler worker | `python -m src.worker --pulse-only` | `scheduler-last-run.json` written with `status: success` |
+| T5.12 | Windows scheduler | Run `install-weekly-scheduler.ps1` | Task `Groww-Weekly-Pulse` registered for weekly run |
+| T5.13 | MCP scheduler | Call `run_weekly_job` on Railway MCP | Fetch + pulse completes; `scheduler_status` returns last run |
 
 ---
 

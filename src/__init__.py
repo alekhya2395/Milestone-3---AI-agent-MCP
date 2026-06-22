@@ -1,1 +1,1 @@
-"""Weekly Pulse agent — Railway deployable MCP server and worker."""
+"""Weekly Pulse MCP server package."""

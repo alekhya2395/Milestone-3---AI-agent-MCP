@@ -1,32 +1,43 @@
 # Phase 5 — Gmail Draft & End-to-End Orchestration
 
-**Status:** Not started  
+**Status:** Implemented  
 **Eval:** [docs/phases/phase-05-gmail-orchestration/eval.md](../../docs/phases/phase-05-gmail-orchestration/eval.md)  
 **Plan:** [Implementation Plan — Phase 5](../../docs/implementationplan.md#phase-5--gmail-draft--end-to-end-orchestration)
 
 ## Objective
 
-Create a **Gmail draft** via Gmail MCP and prove the full weekly workflow end-to-end.
+Create a **Gmail draft** via Gmail MCP and run the full weekly workflow end-to-end.
 
-## Folders & artifacts
+## Scripts
 
 | Path | Purpose |
 |------|---------|
-| `runbook.md` | Full weekly E2E procedure (added in Phase 5) |
-| `../../prompts/weekly-run.md` | Master orchestration prompt |
-| `evidence/` | E2E run logs, draft screenshots |
+| `scripts/create-gmail-draft.py` | Gmail MCP `create_draft` |
+| `scripts/run-phase5.py` | Phase 5 entry point |
+| `scripts/run-weekly.py` | E2E: Phase 2 → 3 → 4 → 5 |
+| `scripts/install-weekly-scheduler.ps1` | Windows Task Scheduler (weekly auto-run) |
+| `runbook.md` | Weekly procedure |
 
-## Planned deliverables
+## Configuration
 
-- Gmail draft to self/alias
-- End-to-end runbook
-- Master [eval.md](../../docs/eval.md) M1–M10 complete
-- Milestone sign-off
+Set in `.env`:
+
+```
+GMAIL_DRAFT_TO=you@example.com
+```
+
+## Quick start
+
+```powershell
+python phases/phase-04-google-docs-mcp/scripts/run-phase4.py
+python phases/phase-05-gmail-orchestration/scripts/run-phase5.py
+```
 
 ## Prerequisites
 
-- Phases 1, 3, 4 complete
-- Gmail recipient decided in [docs/decision.md](../../docs/decision.md)
+- Phases 3 and 4 complete
+- `google-gmail` MCP connected in Cursor
+- `GMAIL_DRAFT_TO` in `.env`
 
 ## Previous
 

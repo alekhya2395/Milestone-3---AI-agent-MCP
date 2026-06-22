@@ -22,7 +22,6 @@ COPY src/ src/
 
 RUN mkdir -p /app/data/raw /app/data/processed /app/data/reviews
 
-# Railway injects PORT at runtime — do not hardcode it here.
 EXPOSE 8080
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \

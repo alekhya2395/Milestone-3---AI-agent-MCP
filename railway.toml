@@ -8,7 +8,6 @@ healthcheckTimeout = 60
 restartPolicyType = "ON_FAILURE"
 numReplicas = 1
 
-# Railway injects PORT automatically — app reads os.environ["PORT"].
 [env]
 HOST = "0.0.0.0"
 DATA_DIR = "/app/data"

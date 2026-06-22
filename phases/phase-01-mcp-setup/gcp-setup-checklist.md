@@ -62,6 +62,8 @@ Google Auth Platform → **Branding** / **Audience** / **Data Access**
 - `https://www.googleapis.com/auth/drive.readonly`
 - `https://www.googleapis.com/auth/drive.file`
 
+> Do **not** use the broad `drive` scope unless you add it manually — Google's Drive MCP docs specify `drive.readonly` + `drive.file` only.
+
 - [ ] All scopes added and saved
 
 ---
@@ -96,7 +98,8 @@ For Google Workspace accounts, a super admin may need to **trust** the OAuth app
 ## 7. Local environment
 
 - [ ] Copy `.env.example` → `.env` (never commit `.env`)
-- [ ] Restart Cursor after setting environment variables
+- [ ] Run `python phases/phase-01-mcp-setup/scripts/sync-mcp-env.py` (Windows — pushes OAuth vars into User environment for Cursor)
+- [ ] Restart Cursor after syncing environment variables
 - [ ] Confirm `.cursor/mcp.json` present in project root
 
 ---

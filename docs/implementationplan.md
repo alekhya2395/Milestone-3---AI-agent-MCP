@@ -135,7 +135,7 @@ Turn raw App Store and Play Store **public exports** into a single, clean, PII-s
 
 ### Why this phase matters
 
-Downstream theming and quotes are only as good as normalized input. PII must be removed here so later LLM steps never see identifiable data in deliverable paths.
+Downstream theming and quotes are only as good as normalized input. PII must be removed here so **Phase 3 Groq** steps never see identifiable data in deliverable paths. **Phase 2 does not call any LLM** — it only prepares Groq-ready artifacts.
 
 ### Prerequisites
 
@@ -188,9 +188,20 @@ Downstream theming and quotes are only as good as normalized input. PII must be 
    - Produce summary: total reviews, per-platform counts, star distribution (optional)
    - Identify if volume is too low for meaningful theming (< threshold → escalate in runbook)
 
-6. **Artifact persistence**
+7. **Artifact persistence**
    - Write normalized output to `data/processed/`
    - Retain small anonymized fixture for phase eval tests
+
+8. **LLM corpus cap (Groq budget — no API calls in Phase 2)**
+   - From normalized output, select **≤1,000** reviews → `data/processed/reviews-for-llm.json`
+   - Selection: recent first, stratified by rating (over-represent 1–2★), prefer longer text
+   - Record in `normalization-summary.json`: `"llm_corpus_cap": 1000`, `"llm_corpus_count": N`
+   - Full archive may remain in `normalized-reviews.json`; **1,000 is the Phase 3 analysis contract**
+   - See [architecture §5.1](./architecture.md#51-pre-llm-strategy--groq-token-budget) — Groq free tier cannot tag 1,000+ reviews per day
+
+9. **Groq readiness (handoff to Phase 3)**
+   - Confirm `reviews-for-llm.json` (≤1,000) and `normalization-summary.json` exist
+   - Phase 3 builds `llm-input-bundle.json` and makes **exactly 2 Groq calls** (~120-review sample + pulse)
 
 ### Inputs
 
@@ -200,8 +211,9 @@ Downstream theming and quotes are only as good as normalized input. PII must be 
 
 ### Outputs
 
-- Normalized review dataset (processed)
-- Ingestion summary report (counts, date range)
+- Normalized review dataset (`normalized-reviews.json` — full archive)
+- **`reviews-for-llm.json`** — capped at **1,000** reviews for Phase 3
+- Ingestion summary report (counts, date range, `llm_corpus_cap`)
 - Documented export provenance in `decision.md`
 - Phase 2 eval signed off
 
@@ -216,10 +228,11 @@ Downstream theming and quotes are only as good as normalized input. PII must be 
 | Export schema changes | Document column mapping per source; version exports |
 | Low review volume in window | Widen toward 12 weeks with decision log entry |
 | PII patterns missed | Expand rules; manual spot-check 20 reviews |
+| LLM corpus too large for Groq tier | Enforce 1,000 cap in Phase 2; never raise cap without token budget review |
 
 ### Handoff to Phase 3
 
-Deliver normalized, sanitized dataset and summary stats. Phase 3 owner confirms volume is sufficient to proceed.
+Deliver `reviews-for-llm.json` (≤1,000) and summary stats. Phase 3 runs local stats on 1,000, **2 Groq calls** on ~120-review sample + pulse only.
 
 ---
 
@@ -227,90 +240,108 @@ Deliver normalized, sanitized dataset and summary stats. Phase 3 owner confirms 
 
 ### Objective
 
-Produce a **complete weekly pulse** — top 3 themes, 3 anonymized quotes, 3 action ideas, ≤250 words, scannable format — as a **local markdown artifact** approved before any Google publish step.
+Produce a **complete weekly pulse** — top 3 themes, 3 anonymized quotes, 3 action ideas, ≤250 words, scannable format — as a **local markdown artifact** approved before any Google publish step. **Groq** is the LLM provider for theme assignment and pulse writing.
 
 ### Why this phase is separated from Google integration
 
 Content quality and constraint compliance (PII, word limit, structure) should be validated independently of MCP. This reduces risk of publishing bad content to Drive or Gmail.
 
+### LLM — Groq (`llama-3.3-70b-versatile`)
+
+| Item | Detail |
+|------|--------|
+| Provider | Groq API ([console.groq.com](https://console.groq.com/)) |
+| Env var | `GROQ_API_KEY` in `.env` |
+| Model | `llama-3.3-70b-versatile` only (single model for theme + pulse) |
+| **Calls per weekly run** | **2** (theme JSON + pulse markdown) |
+| Integration | `phases/phase-03-pulse-generation/scripts/` |
+
+#### Rate limits (free tier) — hard constraints
+
+| Limit | Value | Our budget |
+|-------|------:|------------|
+| Requests / minute | 30 | 2 requests / run |
+| Requests / day | 1,000 | 2–4 with retries |
+| Tokens / minute | 12,000 | Call 1 ≤ ~10K input; sequential calls |
+| Tokens / day | 100,000 | ~15K / run |
+
+See [architecture §5.1](./architecture.md#51-pre-llm-strategy--groq-token-budget).
+
 ### Prerequisites
 
-- Phase 2 complete: normalized dataset available
-- Product theme vocabulary agreed (e.g. onboarding, KYC, payments, statements, withdrawals)
-- Agent prompts directory ready
+- Phase 2 complete: `data/processed/reviews-for-llm.json` (**≤1,000** reviews)
+- **Groq API key** configured locally
+- Groww theme vocabulary (≤5): trading & orders, KYC & onboarding, deposits & withdrawals, app UX & bugs, customer support
+- Agent prompts directory ready (`prompts/`)
 
 ### In scope
 
-- Assigning reviews to ≤5 themes using product-aligned vocabulary
-- Ranking themes; selecting top 3 for the pulse
-- Choosing 3 representative quotes from sanitized text
-- Generating 3 actionable recommendations
-- Formatting fixed pulse structure (see architecture doc)
-- Enforcing ≤250 words and zero PII in final artifact
-- Saving `weekly-pulse-YYYY-MM-DD.md` locally
+- **Local on 1,000 reviews:** stats, quote candidate pool, theme ranking inputs
+- **Groq sample:** ~120 stratified reviews only (not 1,000)
+- **Groq call 1:** theme assignment → JSON
+- **Local rank:** top 3 themes (frequency + 1–2★ weight)
+- **Groq call 2:** pulse draft (≤250 words)
+- **Local validate:** word count, PII scan
+- Artifacts: `llm-input-bundle.json`, `theme-summary.json`, `weekly-pulse-YYYY-MM-DD.md`
 
 ### Out of scope
 
-- Creating Google Doc or Gmail draft
-- Sending email
-- Changing ingestion rules (feed back to Phase 2 if data issues found)
+- Google Doc or Gmail draft
+- Groq batch-tagging all 1,000 reviews (would exhaust 100K TPD)
+- Sending full `reviews.json` (11k+) or `reviews-raw.json` (60k+)
 
 ### Detailed activities
 
-1. **Theme vocabulary alignment**
-   - Lock theme labels to Milestone 1 product domain
-   - Define when to use “Other” or merge low-volume themes (still ≤5 total)
+1. **Build LLM input bundle**
+   - Stats on all **1,000** reviews (local)
+   - Stratified **~120** review sample for Groq (truncate text ~80 tokens/review in prompt)
+   - Write `data/processed/llm-input-bundle.json`
 
-2. **Clustering & assignment**
-   - Group reviews into theme buckets (max 5)
-   - Tag each bucket with approximate volume and sentiment skew (e.g. % ≤2 stars)
+2. **Groq call 1 — theme tag** (~11K tokens)
+   - Model: `llama-3.3-70b-versatile`
+   - Output: JSON theme per sampled review
+   - Wait for completion before call 2 (respect 12K TPM)
 
-3. **Ranking**
-   - Rank themes by combination of frequency and severity (low ratings weigh higher)
-   - Select top 3 for executive pulse; retain full 5-theme summary internally if useful
+3. **Local ranking on 1,000 corpus**
+   - Map sample theme distribution to corpus; apply severity weight (DEC-011)
+   - Select top 3 themes; pick 3 quote candidates per theme from **local** 1,000 (no Groq)
 
-4. **Quote selection**
-   - Pick one strong quote per top theme (or best coverage across three)
-   - Trim for clarity; ensure no PII remnants
-   - Reject and replace quotes that fail PII scan
+4. **Groq call 2 — pulse write** (~4K tokens)
+   - Input: top 3 themes, stats snippet, 9 candidate quotes, fixed template
+   - Output: `weekly-pulse-YYYY-MM-DD.md` draft
 
-5. **Action ideation**
-   - Write 3 specific, feasible next steps mapped to top themes
-   - Avoid generic advice (“improve UX”); prefer observable outcomes
+5. **Validate** — word count ≤250, PII scan, structure check
 
-6. **Pulse composition**
-   - Fill fixed template: at-a-glance, top themes, quotes, actions
-   - Count words; iterate until ≤250
-   - Format for scanability (headings, bullets, short sentences)
-
-7. **Review gate**
-   - Operator reads local markdown artifact
-   - Sign-off recorded before Phase 4 begins
+6. **Operator review gate** — sign off before Phase 4
 
 ### Inputs
 
-- Normalized review dataset from Phase 2
-- Theme vocabulary
-- Agent prompts for analysis and writing
+- `reviews-for-llm.json` (≤1,000) from Phase 2
+- `GROQ_API_KEY`
+- Prompts in `prompts/`
 
 ### Outputs
 
-- `weekly-pulse-YYYY-MM-DD.md` (approved)
-- Optional `theme-summary.json` with counts and rankings
+- `data/processed/llm-input-bundle.json`
+- `data/processed/theme-summary.json`
+- `data/processed/weekly-pulse-YYYY-MM-DD.md` (approved)
 - Phase 3 eval signed off
 
 ### Validation
 
 - Phase 3 [eval.md](./phases/phase-03-pulse-generation/eval.md): structure, word count, PII, content rubric
+- Groq usage log: ≤2 successful API calls per run; total tokens logged
 
 ### Risks & mitigations
 
 | Risk | Mitigation |
 |------|------------|
-| Themes too generic | Constrain vocabulary; inject product glossary in prompt |
-| Pulse over word limit | Dedicated trim pass; shorten “at a glance” first |
-| Quotes still identifiable | Paraphrase while preserving sentiment |
-| LLM hallucinated actions | Ground actions in theme evidence; manual review |
+| 12K TPM exceeded | Cap Groq sample at ~120; truncate review text in prompt |
+| 100K TPD exhausted | Never batch all 1,000 on Groq; 2-call design only |
+| 30 RPM burst | Sequential calls; optional 2s delay between calls |
+| Themes too generic | Fixed Groww vocabulary in prompt (`product_config.py`) |
+| Pulse over word limit | Trim “at a glance” first |
+| Hallucinated actions | Ground in theme evidence; manual review |
 
 ### Handoff to Phase 4
 

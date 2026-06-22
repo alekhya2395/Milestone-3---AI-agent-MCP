@@ -1,203 +1,65 @@
-# Railway Deployment Plan — Weekly Pulse MCP
+# Railway Deployment — Weekly Pulse MCP
 
-Deploy the **Weekly Pulse agent service** to [Railway](https://railway.app). This hosts your **custom MCP server** (review ingestion tools). **Google Gmail and Drive MCP stay on Google's servers** — Cursor connects to both.
+Deploy the **custom MCP server** to [Railway](https://railway.app). Google Gmail/Drive MCP stay on Google's servers.
 
----
+**Live server:** [https://milestone-3-ai-agent-mcp-production.up.railway.app/](https://milestone-3-ai-agent-mcp-production.up.railway.app/)
 
-## Architecture
-
-```mermaid
-flowchart TB
-    subgraph Railway["Railway"]
-        MCP["weekly-pulse MCP<br/>Streamable HTTP"]
-        CRON["Cron: review worker"]
-        VOL[(Volume /app/data)]
-    end
-
-    subgraph Google["Google-hosted"]
-        GMCP[Gmail MCP]
-        DMCP[Drive MCP]
-    end
-
-    subgraph Local["Your machine"]
-        CURSOR[Cursor IDE]
-    end
-
-    CRON --> VOL
-    MCP --> VOL
-    CURSOR -->|HTTPS| MCP
-    CURSOR -->|OAuth| GMCP
-    CURSOR -->|OAuth| DMCP
-```
-
-| Component | Deploy on Railway? | Endpoint |
-|-----------|-------------------|----------|
-| **weekly-pulse MCP** (this repo) | Yes | `https://<app>.up.railway.app/mcp` |
-| Gmail MCP | No | `https://gmailmcp.googleapis.com/mcp/v1` |
-| Drive MCP | No | `https://drivemcp.googleapis.com/mcp/v1` |
+**Repository:** [github.com/alekhya2395/Milestone-3---AI-agent-MCP](https://github.com/alekhya2395/Milestone-3---AI-agent-MCP)
 
 ---
 
-## What was added to the repo
+## MCP tools
 
-```
-Milestone-3---AI-agent-MCP/
-├── deploy/
-│   ├── Dockerfile          # Container image
-│   └── start.sh            # Optional entry script
-├── src/
-│   ├── main.py             # MCP server (Streamable HTTP)
-│   ├── worker.py           # Cron entrypoint
-│   ├── pipeline.py         # Wraps Phase 2 scripts
-│   └── config.py           # Paths + env
-├── railway.toml            # Railway build + health check
-├── .dockerignore
-└── docs/deployment-railway.md   # This file
-```
-
-### MCP tools exposed on Railway
+### Phase 2 — Review ingestion
 
 | Tool | Description |
 |------|-------------|
 | `fetch_reviews` | Download App Store + Play Store reviews |
-| `normalize_reviews` | Clean, filter, de-PII reviews |
-| `review_stats` | JSON summary of `data/reviews/reviews.json` |
-| `latest_pulse` | Return latest `weekly-pulse-*.md` if present |
+| `normalize_reviews` | Clean, filter, de-PII; build `reviews-for-llm.json` |
+| `review_stats` | JSON summary of normalized reviews |
 
-### Health check
+### Phase 3 — Pulse generation (Groq)
 
-```
-GET https://<app>.up.railway.app/health
-→ {"status": "healthy", "service": "weekly-pulse-mcp"}
-```
+| Tool | Description |
+|------|-------------|
+| `build_llm_bundle` | Stats on 1,000 + ~120 Groq sample |
+| `generate_pulse` | 2 Groq calls → `theme-summary.json` + `weekly-pulse-*.md` |
+| `run_phase3_pipeline` | Full Phase 3 with validation |
+| `theme_summary` | Return theme rankings JSON |
+| `llm_bundle` | Return LLM input bundle JSON |
+| `latest_pulse` | Return latest weekly pulse markdown |
 
----
+### Scheduler (Phase 5)
 
-## Prerequisites
-
-- [Railway account](https://railway.app)
-- [Railway CLI](https://docs.railway.app/develop/cli) (optional)
-- GitHub repo pushed (Railway deploys from Git)
-- Phase 1 GCP OAuth already working in Cursor (for Gmail/Drive MCP)
-
----
-
-## Step 1 — Create Railway project
-
-### Option A: Railway Dashboard
-
-1. Go to [railway.app/new](https://railway.app/new)
-2. **Deploy from GitHub repo** → select `Milestone-3---AI-agent-MCP`
-3. Railway detects `railway.toml` and `deploy/Dockerfile`
-
-### Option B: Railway CLI
-
-```bash
-npm i -g @railway/cli
-railway login
-cd Milestone-3---AI-agent-MCP
-railway init
-railway up
-```
+| Tool | Description |
+|------|-------------|
+| `run_weekly_job` | Fetch → normalize → pulse (+ optional publish) |
+| `scheduler_status` | Last cron/MCP run from `scheduler-last-run.json` |
 
 ---
 
-## Step 2 — Add a persistent volume
+## Railway environment variables
 
-Review data must survive redeploys.
-
-1. Railway project → your service → **Volumes**
-2. **Add Volume**
-3. Mount path: **`/app/data`**
-4. Redeploy
-
----
-
-## Step 3 — Set environment variables
-
-In Railway → **Variables**:
-
-| Variable | Required | Example |
+| Variable | Required | Purpose |
 |----------|----------|---------|
-| `GOOGLE_CLOUD_PROJECT_ID` | Recommended | `silver-treat-499611-r3` |
-| `GOOGLE_OAUTH_CLIENT_ID` | For Cursor MCP | Web client ID |
-| `GOOGLE_OAUTH_CLIENT_SECRET` | For Cursor MCP | Web client secret |
-| `GOOGLE_OAUTH_EMAIL` | Recommended | `dhulipudialekhya@gmail.com` |
-| `MCP_SERVER_API_KEY` | Optional | Generate a strong random string |
-| `DATA_DIR` | Yes (default in Dockerfile) | `/app/data` |
-| `PORT` | Auto-set by Railway | — |
-
-**Do not** upload `credentials.json`, `token.json`, or `.env` to Railway unless you use Railway's secret file mount. Google MCP OAuth for Cursor stays on your local machine / Cursor env vars.
+| `REVIEW_WEEKS` | Optional | Review window for cron (default `10`) |
+| `GROQ_API_KEY` | **Yes for Phase 3** | Groq API for theme + pulse |
+| `DATA_DIR` | Yes | `/app/data` (use Volume) |
+| `GOOGLE_OAUTH_CLIENT_ID` | Cursor only | Google MCP in IDE |
+| `GOOGLE_OAUTH_CLIENT_SECRET` | Cursor only | Google MCP in IDE |
+| `MCP_SERVER_API_KEY` | Optional | Protect MCP endpoint |
 
 ---
 
-## Step 4 — Deploy
+## Cursor MCP config
 
-```bash
-railway up
-```
-
-Or push to GitHub if connected — Railway auto-deploys.
-
----
-
-## Step 5 — Generate public domain (fix "Not Found")
-
-Domain generation only works after a **successful** deployment (green checkmark).
-
-1. Railway → your **service** → **Settings** → **Networking**
-2. Under **Public Networking**, click **Generate Domain**
-3. Copy the exact URL shown (e.g. `https://something-production.up.railway.app`) — do not guess the hostname
-4. Click the **pencil/edit icon** next to the domain
-5. Set **Port** to match your app port:
-   - Check deploy logs for: `Starting weekly-pulse MCP on 0.0.0.0:XXXX`
-   - Or use the `PORT` value from Railway **Variables** (Railway sets this automatically)
-   - Common value: **`8080`** if logs show port 8080
-6. Save — traffic should route immediately (no redeploy needed)
-
-### Verify these URLs
-
-| URL | Expected |
-|-----|----------|
-| `https://YOUR-APP.up.railway.app/` | JSON with `"status": "running"` |
-| `https://YOUR-APP.up.railway.app/health` | `{"status":"healthy",...}` |
-| `https://YOUR-APP.up.railway.app/mcp` | MCP endpoint (for Cursor) |
-
-If root `/` shows **Not Found**, the domain port is wrong or deployment failed — fix Networking port first.
-
-Verify:
-
-```bash
-curl https://YOUR-APP.up.railway.app/health
-```
-
-Generate a public domain: Railway → **Settings → Networking → Generate Domain**.
-
----
-
-## Step 5 — Configure Cursor MCP
-
-Add your Railway server to `.cursor/mcp.json` **alongside** Google MCP:
+`.cursor/mcp.json`:
 
 ```json
 {
   "mcpServers": {
     "weekly-pulse": {
-      "url": "https://YOUR-APP.up.railway.app/mcp"
-    },
-    "google-drive": {
-      "url": "https://drivemcp.googleapis.com/mcp/v1",
-      "auth": {
-        "CLIENT_ID": "${env:GOOGLE_OAUTH_CLIENT_ID}",
-        "CLIENT_SECRET": "${env:GOOGLE_OAUTH_CLIENT_SECRET}"
-      }
-    },
-    "google-gmail": {
-      "url": "https://gmailmcp.googleapis.com/mcp/v1",
-      "auth": {
-        "CLIENT_ID": "${env:GOOGLE_OAUTH_CLIENT_ID}",
-        "CLIENT_SECRET": "${env:GOOGLE_OAUTH_CLIENT_SECRET}"
-      }
+      "url": "https://milestone-3-ai-agent-mcp-production.up.railway.app/mcp"
     }
   }
 }
@@ -207,101 +69,51 @@ Restart Cursor after updating.
 
 ---
 
-## Step 6 — Optional cron worker
-
-Schedule weekly review fetch on Railway:
-
-1. Create a **second service** in the same project (or use Railway Cron)
-2. Use the **same Dockerfile**
-3. Override start command:
+## Deploy updates
 
 ```bash
-python -m src.worker --weeks 10
+git push origin main
+# Railway auto-deploys from GitHub
 ```
 
-4. Cron schedule: `0 6 * * 1` (Mondays 06:00 UTC)
-5. Mount the **same volume** at `/app/data`
+Or: `railway up`
+
+**Important:** After pushing Phase 3 code, redeploy Railway so `generate_pulse` tools are available.
 
 ---
 
-## Local testing before deploy
+## Weekly workflow
 
-```bash
-pip install -r requirements.txt
-python -m src
-# Health: http://localhost:8080/health
-# MCP:    http://localhost:8080/mcp
-```
+### Automated scheduler (keeps reviews up to date)
 
-Run worker locally:
+| Platform | Config | Schedule | Command |
+|----------|--------|----------|---------|
+| **Local Windows** | `install-weekly-scheduler.ps1` | Every Monday 09:00 | `python -m src.worker --publish` |
+| **Railway cron** | `deploy/railway.cron.toml` | Mondays 06:00 UTC | `python -m src.worker` |
+| **MCP (Cursor)** | `run_weekly_job` tool | On demand | fetch + pulse via Railway MCP |
 
-```bash
-python -m src.worker --weeks 10
-```
+Worker logs last run to `data/processed/scheduler-last-run.json`.
 
----
+### Railway cron service setup
 
-## Weekly workflow (production)
+1. In your Railway project, **New Service** → same GitHub repo.
+2. **Settings → Deploy → Config file path:** `deploy/railway.cron.toml`
+3. Attach a **Volume** mounted at `/app/data` (same as main MCP service).
+4. Set `GROQ_API_KEY` on the cron service.
+5. Cron runs `python -m src.worker` (fetch + pulse only; publish stays local or via MCP with `publish=true`).
+
+### Manual weekly run
 
 | Step | Where | Action |
 |------|-------|--------|
-| 1 | Railway cron | `fetch_reviews` + `normalize_reviews` |
-| 2 | Cursor Agent | Call `weekly-pulse` MCP → generate pulse (Phase 3) |
-| 3 | Operator | Approve local `weekly-pulse-*.md` |
-| 4 | Cursor Agent | `google-drive` MCP → create Doc |
-| 5 | Cursor Agent | `google-gmail` MCP → create draft |
-| 6 | Operator | Send email manually from Gmail |
+| 1 | Worker / MCP | `python -m src.worker` or `run_weekly_job` |
+| 2 | Operator | Approve `data/processed/weekly-pulse-*.md` |
+| 3 | Worker `--publish` or Phase 4/5 | Google Doc + Gmail draft |
 
 ---
 
-## Milestone constraints (unchanged)
+## Related
 
-- **Gmail/Drive publish** → Google remote MCP only (not Railway)
-- **No `googleapis` SDK** in server code for Docs/Gmail
-- **Human approval** before Google publish steps
-- **No PII** in pulse artifacts
-
----
-
-## Troubleshooting
-
-| Symptom | Fix |
-|---------|-----|
-| **Not Found** on domain root | Settings → Networking → edit domain → set **Port** to match app `PORT` (see deploy logs) |
-| **Generate Domain** greyed out | Wait for deployment to succeed (healthcheck must pass) |
-| Health check fails | Check deploy logs for startup errors; confirm `/health` works |
-| MCP tools empty in Cursor | Verify URL ends with `/mcp`; check MCP Logs (`Ctrl+Shift+U`) |
-| Reviews missing after redeploy | Attach Railway Volume at `/app/data` |
-| `fetch_reviews` timeout | Increase Railway service memory; Play Store pagination is slow |
-| Google MCP 403 in Cursor | Add test user in GCP; re-authenticate in Tools & MCP |
-
----
-
-## Cost estimate
-
-| Resource | Est. monthly |
-|----------|--------------|
-| Web service (512 MB) | $5–10 |
-| Volume (1 GB) | ~$0.25 |
-| Cron worker | $1–3 |
-| **Total** | **~$7–15** |
-
----
-
-## Rollout phases
-
-| Phase | Scope | Status |
-|-------|-------|--------|
-| **P0** | Docker + MCP server + health | Ready in repo |
-| **P1** | Railway deploy + volume | Follow steps above |
-| **P2** | Cron worker | Optional Step 6 |
-| **P3** | Pulse generation on server | Phase 3+ (future) |
-
----
-
-## Related docs
-
+- [Phase 3 README](../phases/phase-03-pulse-generation/README.md)
 - [Architecture](./architecture.md)
-- [Phase 1 MCP runbook](../phases/phase-01-mcp-setup/runbook.md)
-- [GCP setup checklist](../phases/phase-01-mcp-setup/gcp-setup-checklist.md)
-- [Cursor MCP docs](https://cursor.com/docs/mcp)
+- [Implementation plan](./implementationplan.md)
